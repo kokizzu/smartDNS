@@ -58,7 +58,11 @@ func NewConfig(configFile string) *Config {
 
 	config.DomainTTLMap = getDomainTTLMap(config.DomainTTLFile)
 	// configure will load all DNS filter rule
+	var dnsBunch []string
+	i := 0
 	for k := range config.DNSFilter {
+		dnsBunch[i] = k
+		i++
 		config.DNSFilter[k].DomainList = initDomainMatcher(config.DNSFilter[k].DomainFile, config.DNSFilter[k].Matcher)
 		config.DNSFilter[k].IPNetworkList = getIPNetworkList(config.DNSFilter[k].IPNetworkFile)
 	}

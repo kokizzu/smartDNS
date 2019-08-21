@@ -192,7 +192,7 @@ func (d *Dispatcher) selectByIPNetwork(bundle *Bundle) *BundleMsg {
 	}
 	if Response != nil {
 		for bundleName, a := range Response {
-			if a == nil {
+			if a == nil || a.ResponseMessage == nil {
 				continue
 			}
 			for i := range a.ResponseMessage.Answer {

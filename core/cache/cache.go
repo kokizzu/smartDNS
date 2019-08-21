@@ -4,46 +4,17 @@
 // The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// Package cache implements dns cache feature with edns-client-subnet support.
 package cache
-
-// Cache that holds RRs.
-// TODO LRU cache link
 
 import (
 	"container/list"
 	"fmt"
-	"sync"
 	"time"
 
+	"github.com/import-yuefeng/smartDNS/core/common"
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 )
-
-// Elem hold an answer and additional section that returned from the cache.
-// The signature is put in answer, extra is empty there. This wastes some memory.
-
-type FastMap struct {
-	DnsBundle string
-	Domain    string
-}
-
-type elem struct {
-	// time added + TTL, after this the elem is invalid
-	expiration time.Time
-	msg        *dns.Msg
-	fastMap    *FastMap
-}
-
-// Cache is a cache that holds on the a number of RRs or DNS messages. The cache
-// eviction is randomized.
-type Cache struct {
-	sync.RWMutex
-
-	capacity int
-	domain   map[string]*elem
-	head     *list.List
-}
 
 // New returns a new cache with the capacity and the ttl specified.
 func New(capacity int) *Cache {
@@ -55,6 +26,9 @@ func New(capacity int) *Cache {
 	c.domain = make(map[string]*elem)
 	c.capacity = capacity
 	c.head = list.New()
+
+	c.cacheUpdate = new(CacheUpdate)
+	c.cacheUpdate.TaskChan = make(chan *Task, 1000)
 
 	return c
 }
@@ -102,13 +76,15 @@ func (c *Cache) Insert(key string, m *dns.Msg, mTTL uint32, dnsBundleName string
 	ttlDuration := time.Duration(ttl) * time.Second
 	if _, ok := c.domain[key]; !ok {
 		// Insert elem to cache when Cache not have the elem.
-		fastMap := new(FastMap)
+		fastMap := new(common.FastMap)
 		fastMap.DnsBundle, fastMap.Domain = dnsBundleName, domainName
+
 		var newElem *elem
 		newElem = new(elem)
 		newElem.expiration, newElem.msg, newElem.fastMap = time.Now().UTC().Add(ttlDuration), m.Copy(), fastMap
 		c.head.PushFront(newElem)
 		c.domain[key] = newElem
+		c.cacheUpdate.AddTask(ttl, m.Copy(), fastMap, c.dnsBunch)
 	}
 	log.Debugf("Cached: %s", key)
 	c.Unlock()

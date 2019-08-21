@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
+	github.com/mdempsky/gocode v0.0.0-20190203001940-7fb65232883f // indirect
 	github.com/miekg/dns v1.1.15
 	github.com/robfig/cron v1.2.0
 	github.com/sirupsen/logrus v1.4.2
